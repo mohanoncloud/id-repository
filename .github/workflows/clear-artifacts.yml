@@ -5,4 +5,4 @@ on:
 
 jobs:
   delete-artifacts:
-    uses: mosip/kattu/.github/workflows/clear-artifacts.yml@master
+    uses: mosip/kattu/.github/workflows/clear-artifacts.yml@4e9370bc8edcdada050ccac663a9c751af7ec0aa # master

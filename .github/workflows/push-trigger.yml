@@ -1,5 +1,8 @@
 name: Maven Package upon a push
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     types: [opened, reopened, synchronize]
@@ -11,12 +14,16 @@ on:
         default: 'Triggered for Updates'
         type: string
   push:
+    # develop and main only, not develop*: that pattern also matched develop-automation and
+    # every develop-<ticket> work branch, each publishing its own images to GHCR. The upstream
+    # release*, master and 1.* lines are not built or deployed by BHS-BS.
     branches:
-      - '!release-branch'
-      - release*
-      - master
-      - 1.*
-      - develop*
+      - develop
+      - main
+
+concurrency:
+  group: id-repository-images-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-maven-id-repository:

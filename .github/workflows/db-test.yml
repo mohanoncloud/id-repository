@@ -36,6 +36,6 @@ jobs:
             DB_NAME: 'mosip_idrepo'
       fail-fast: false
     name: ${{ matrix.DB_NAME }}
-    uses: mosip/kattu/.github/workflows/db-test.yml@master
+    uses: mosip/kattu/.github/workflows/db-test.yml@4e9370bc8edcdada050ccac663a9c751af7ec0aa # master
     with:
       DB_LOCATION: ${{ matrix.DB_LOCATION}}
