@@ -63,3 +63,16 @@ jobs:
       SERVICE_LOCATION: ${{ matrix.SERVICE_LOCATION }}
       SERVICE_NAME: ${{ matrix.SERVICE_NAME }}
       BUILD_ARTIFACT: ${{ matrix.BUILD_ARTIFACT }}
+
+  # api-test isn't packaged or published; compile it so its build doesn't silently rot.
+  compile-api-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 21
+          cache: maven
+      - name: Compile api-test
+        run: mvn -B -ntp -DskipTests compile -f api-test/pom.xml
