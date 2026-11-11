@@ -51,7 +51,9 @@ jobs:
       BRANCH: gh-pages
       INCLUDE_ALL_CHARTS: "${{ inputs.INCLUDE_ALL_CHARTS || 'NO' }}"
       IGNORE_CHARTS: "${{ inputs.IGNORE_CHARTS || '\"\"' }}"
-      CHART_PUBLISH: "${{ inputs.CHART_PUBLISH || 'YES' }}"
+      # Publishing pushes to BHS-BS/mosip-helm, which has no working token yet (it failed after the
+      # audit-manager merge), so pushes only lint. A manual run can still set CHART_PUBLISH=YES.
+      CHART_PUBLISH: "${{ inputs.CHART_PUBLISH || 'NO' }}"
       LINTING_CHART_SCHEMA_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/master/.github/helm-lint-configs/chart-schema.yaml"
       LINTING_LINTCONF_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/master/.github/helm-lint-configs/lintconf.yaml"
       LINTING_CHART_TESTING_CONFIG_YAML_URL: "https://raw.githubusercontent.com/mosip/kattu/master/.github/helm-lint-configs/chart-testing-config.yaml"

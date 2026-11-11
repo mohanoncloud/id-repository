@@ -58,10 +58,10 @@ ENV schema_name=${salt_gen_schema_name}
 ENV table_name=${salt_gen_table_name}
 
 # can be passed during Docker build as build time environment for github branch to pickup configuration from.
-ARG container_user=mosip
+ARG container_user=mypass
 
 # can be passed during Docker build as build time environment for github branch to pickup configuration from.
-ARG container_user_group=mosip
+ARG container_user_group=mypass
 
 # can be passed during Docker build as build time environment for github branch to pickup configuration from.
 ARG container_user_uid=1001

@@ -1,4 +1,4 @@
-## MOSIP ID Rpository module Databases (**mosip_idrepo, mosip_idmap and mosip_credential**) Release scripts inventory and deployment/revoke guidelines on postgresql database. 
+## MOSIP ID Rpository module Databases (**mypass_idrepo, mypass_idmap and mypass_credential**) Release scripts inventory and deployment/revoke guidelines on postgresql database. 
 
 ## Prerequisities
 
@@ -10,9 +10,9 @@
 
 * Necessary details needs to be updated in properties file against to the relevant variables being used (details are listed below).
 
-* Database release objects related to MOSIP modules are placed in "**mosip_base_directory**>>db_release_scripts>>mosip_<schema_name> folder on git/repository
+* Database release objects related to MOSIP modules are placed in "**mosip_base_directory**>>db_release_scripts>>mypass_<schema_name> folder on git/repository
 
-**Example:** For id repository module release script folder is /**mosip_base_directory**>>db_release_scripts>>mosip_idrepo where all the database release scripts related to IDREPO are available.
+**Example:** For id repository module release script folder is /**mosip_base_directory**>>db_release_scripts>>mypass_idrepo where all the database release scripts related to IDREPO are available.
 
 * Create a log file directory if it doesn't exist on DB deployment server before updating the properties file. Please follow the steps to create the same:
  
@@ -27,17 +27,17 @@
 
 ## Each release database folder has the following files / folders
 
-* **mosip_<schema_name>/ddl folder:** Contains table creation scripts for the release.
+* **mypass_<schema_name>/ddl folder:** Contains table creation scripts for the release.
 
-* **mosip_<schema_name>/dml folder:** Contains seed/master data CSVs for the release.
+* **mypass_<schema_name>/dml folder:** Contains seed/master data CSVs for the release.
 
-* **mosip_<schema_name>/sql folder:** SQL alter script files for the release and revoke, Specific to release version.
+* **mypass_<schema_name>/sql folder:** SQL alter script files for the release and revoke, Specific to release version.
 
-* **mosip_<schema_name>/<schema_name>_release_db_deploy.sh:**  Script to deploy alter scripts.
+* **mypass_<schema_name>/<schema_name>_release_db_deploy.sh:**  Script to deploy alter scripts.
 
-* **mosip_<schema_name>/<schema_name>_release_deploy.properties:** Parameters required for release DB deployment
+* **mypass_<schema_name>/<schema_name>_release_deploy.properties:** Parameters required for release DB deployment
 
-* **mosip_<schema_name>/<schema_name>_revoke_db_deploy.sh:**  Script to revoke database deployment.
+* **mypass_<schema_name>/<schema_name>_revoke_db_deploy.sh:**  Script to revoke database deployment.
 
 **Note:** SQL script files name under sql folder are appended with release version numbers( like **1.2.0**_idrepo-scripts_release.sql), Same version number has to be passed as argument while executing release/revoke shell scripts. Ex. **$bash idrepo_release_db_deploy.sh drepo_release_deploy.properties 1.2.0**
 
@@ -57,7 +57,7 @@ Once completed with sourcing the database release files, Follow the DB release d
 
 **DEFAULT_DB_NAME=** Default database name to connect with respective postgres server i.e. ex: postgres
 
-**MOSIP_DB_NAME=** Database name for which the deployment is scheduled.
+**MYPASS_DB_NAME=** Database name for which the deployment is scheduled.
 
 **SYSADMIN_USER=** Variable contains the sysadmin use name which indeed is going to be the super user for the remaining actions going to be performed by shell script.
 

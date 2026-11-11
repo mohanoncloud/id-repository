@@ -91,18 +91,18 @@ The project requires:
 
 ### Local Setup with Docker (Easy Setup for Demos)
 
-#### Option 1: Pull from Docker Hub
+#### Option 1: Pull from GitHub Container Registry
 
 Recommended for users who want a quick, ready-to-use setup — testers, students, and external users.
 
-Pull the latest pre-built images from Docker Hub using the following commands:
+Pull the latest `develop` images from GitHub Container Registry (GHCR). The packages are private, so run `docker login ghcr.io` first with a GitHub token that has `read:packages`:
 
 ```text
-docker pull mosipid/id-repository-identity-service:<version>
-docker pull mosipid/id-repository-vid-service:<version>
-docker pull mosipid/credential-service:<version>
-docker pull mosipid/credential-request-generator:<version>
-docker pull mosipid/id-repository-salt-generator:<version>
+docker pull ghcr.io/bhs-bs/id-repository-identity-service:develop
+docker pull ghcr.io/bhs-bs/id-repository-vid-service:develop
+docker pull ghcr.io/bhs-bs/credential-service:develop
+docker pull ghcr.io/bhs-bs/credential-request-generator:develop
+docker pull ghcr.io/bhs-bs/id-repository-salt-generator:develop
 ```
 
 #### Option 2: Build Docker Images Locally
