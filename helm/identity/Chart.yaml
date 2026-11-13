@@ -1,8 +1,8 @@
 apiVersion: v2
 name: identity
-description: A Helm chart for MOSIP IDRepo Identity Service
+description: A Helm chart for the My Pass IDRepo Identity Service
 type: application
-version: 1.3.1
+version: 0.0.1-develop
 
 appVersion: ""
 dependencies:
@@ -11,7 +11,7 @@ dependencies:
     tags:
       - bitnami-common
     version: 1.x.x
-home: https://mosip.io
+home: https://github.com/BHS-BS/id-repository
 keywords:
   - mosip
   - identity
