@@ -36,7 +36,7 @@ The Maven parent is **`id-repository/pom.xml`**, not the repo root (`io.mosip.id
 - **Credential pipeline (asynchronous):** create/update writes `credential_request_status` rows → a scheduled `CredentialStatusManager` job → credential-request-generator (Spring Batch, `mypass_credential`) → credential-service builds the credential (`IdAuthProvider`, `QrCodeProvider`, `VerCredProvider`) and delivers it over WebSub.
 - **Services it calls:** keymanager, kernel ID generator, masterdata/syncdata (ID schema), PMS (partners), WebSub hub, audit-manager, the biometric SDK, datashare. Tokens through `kernel-auth-adapter`.
 - **Databases:** fresh install in `db_scripts/mypass_{idrepo,idmap,credential}/`, upgrades in `db_upgrade_scripts/`, legacy 1.1.x–1.2.1 release/revoke scripts in `db_release_scripts/`.
-- **Other folders:** `api-test/` (separate Maven project, REST Assured/TestNG, runs against a deployed environment), `helm/` (credential, credentialfeeder, credentialrequest, identity, idrepo umbrella, idrepo-saltgen, vid), `deploy/` (install/delete/restart scripts, namespace `idrepo`), `docs/`.
+- **Other folders:** `api-test/` (separate Maven project, REST Assured/TestNG, runs against a deployed environment), `helm/` (credential, credentialfeeder, credentialrequest, identity, idrepo umbrella, idrepo-saltgen, vid; published to `oci://ghcr.io/bhs-bs/charts/<chart>`), `deploy/` (install/delete/restart scripts, namespace `idrepo`), `docs/`.
 
 ## Coding standards and conventions
 
@@ -95,8 +95,8 @@ mvn test -Dgpg.skip=true -pl id-repository-vid-service -Dtest=VidServiceImplTest
     - A `changes` job picks which service images the change needs.
     - `BHS-BS/shared-workflow` `maven-build.yml@develop` builds `./id-repository`, then `docker-build.yml@develop` builds each changed service and pushes it to GHCR.
     - **`ci-gate`** is the required check. The api-test compile job is commented out.
-  - `db-test.yml` (one matrix entry per DB), `chart-lint-publish.yml` and `clear-artifacts.yml` still call upstream `mosip/kattu`.
-  - `chart-lint-publish.yml` only lints on push (`CHART_PUBLISH` defaults to `NO`): publishing pushes to `BHS-BS/mosip-helm`, which has no working token, and failed after the audit-manager merge. A manual run can still set `CHART_PUBLISH=YES`.
+  - `db-test.yml` (one matrix entry per DB) and `clear-artifacts.yml` still call upstream `mosip/kattu`.
+  - `chart-lint-publish.yml` calls `BHS-BS/shared-workflow` `helm-lint-publish.yml@develop` (MP-206). PRs that change `helm/` lint the charts; a merge into `develop` or `release*` that changes `helm/` publishes them to `oci://ghcr.io/bhs-bs/charts/<chart>`. `release*` is kept on purpose for release branches.
   - The DB test workflow keeps its legacy push patterns (`release*`, `master`, `1.*`, `develop*`) plus `main`, on purpose for now, so it does not yet follow the BHS workflow rule.
 
 ## Branch and PR conventions
@@ -120,15 +120,15 @@ mvn test -Dgpg.skip=true -pl id-repository-vid-service -Dtest=VidServiceImplTest
 - **`db_scripts/mypass_*/deploy.sh` drops the database and role**, then recreates them. Never run it against a shared DB.
 - **Upgrade chain** for all three DBs: `1.1.5.5 → 1.2.0.1-B1 → B2 → B3 → 1.2.0.1 → 1.2.1.0 → 1.2.2.0 → … → 1.2.2.4 → 1.3.0 → 1.3.1`. A new version needs a `1.3.1_to_<next>` pair per DB.
 - **MP-106 rename (`mosip_*` → `mypass_*`).**
-  - Done here: `db_scripts/`, `db_upgrade_scripts/`, `db_release_scripts/` (`MYPASS_DB_NAME`), `db-test.yml`, Dockerfile users, and DB names in local/test properties. The Helm charts and `deploy/` are not renamed (see "Helm charts are upstream").
+  - Done here: `db_scripts/`, `db_upgrade_scripts/`, `db_release_scripts/` (`MYPASS_DB_NAME`), `db-test.yml`, Dockerfile users, and DB names in local/test properties. The Helm charts and `deploy/` are not renamed (see "Helm charts are owned by DevOps").
   - Still pending and must deploy with these scripts: **mosip-config `id-repository-default.properties`** (`mosip.idrepo.db.identity.db-name`, `mosip.idrepo.db.vid.db-name`, `mosip.credential.service.jdbc.url`).
   - Not renamed on purpose: roles (`idrepouser`, `idmapuser`, `credentialuser`), schemas, `io.mosip` packages, `mosip.*` property keys, the `api-internal.sandbox.mosip.net` host in `db_scripts/*/deploy.properties`.
-- **Reusable workflows** live only in `mosip/kattu`; `mypass/kattu` does not exist. Don't rename `uses:` paths.
+- **Upstream reusable workflows** live in `mosip/kattu`; `mypass/kattu` does not exist, so don't rename those `uses:` paths. BHS workflows live in `BHS-BS/shared-workflow`.
 - **Container user.** Every Dockerfile's container user is `mypass`: uid 1002 for identity, vid, credential-request-generator and credential-service; 1001 for salt-generator and api-test. The identity service and api-test still build `FROM mosipid/openjdk-21-jre:21.0.4`; `mypassid/openjdk-21-jre` does not exist yet.
-- **Helm charts and deploy-time images are upstream, on purpose.** `helm/` keeps the upstream values (`docker.io` / `mosipid/*` images incl. credentials-feeder, `runAsUser: mosip`, `mosipid/os-shell`), and `deploy/idrepo-apitestrig` keeps `mosipid/apitest-idrepo`. The lead decided (2026-11-10) that DevOps applies Helm changes at deployment/release, so don't change them in feature PRs.
+- **Helm charts are owned by DevOps; deploy-time images are upstream.** DevOps moved the charts to GHCR in MP-206: version `0.0.1-develop`, images `ghcr.io/bhs-bs/<image>:develop`. CI doesn't build the credentials feeder, so `helm/credentialfeeder` keeps `mosipid/id-repository-credentials-feeder`. `helm/` keeps the other upstream values (`runAsUser: mosip`, `mosipid/os-shell`), and `deploy/idrepo-apitestrig` keeps `mosipid/apitest-idrepo`. The lead decided (2026-11-10) that DevOps applies Helm changes at deployment/release, so don't change them in feature PRs.
   - The templates pass `runAsUser` into the env var `container_user`, but the images don't read it at runtime, so `mosip` there next to the image user `mypass` is harmless. Keep it a user name, not a number.
-  - CI pushes the images to GHCR (`ghcr.io/bhs-bs/<module>:develop`, private, needs a `ghcr.io` pull secret); pointing the charts at them is DevOps's change.
-- **Helm repos.** `deploy/*/install.sh` install the upstream charts from `mosip/...` (`https://mosip.github.io/mosip-helm`), and the `helm/idrepo` umbrella pulls its subcharts from the same repo. `deploy/` is upstream on purpose: DevOps owns it together with Helm (lead decision 2026-11-10).
+  - CI pushes the images to GHCR (`ghcr.io/bhs-bs/<module>:develop`, private, needs a `ghcr.io` pull secret); the charts use them.
+- **Helm repos.** `deploy/*/install.sh` install the upstream charts from `mosip/...` (`https://mosip.github.io/mosip-helm`), The `helm/idrepo` umbrella bundles the subcharts next to it (`file://../<chart>`, version `0.0.1-develop`), so it no longer needs the MOSIP chart repo. `deploy/` is upstream on purpose: DevOps owns it together with Helm (lead decision 2026-11-10).
 - **Global configmap key.** `deploy/idrepo-apitestrig/install.sh` reads `mosip-api-internal-host` from the `global` configmap; the cluster configmap must use that name.
 - **`@PreAuthorize` is commented out** on the credential-request-generator endpoints. Treat a change there as a security change.
 - **Draft create query parameter is case-sensitive:** `POST /draft/create/{rid}?UIN=`; `?uin=` is ignored and starts a new-registration draft.

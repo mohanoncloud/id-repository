@@ -196,6 +196,19 @@ Automated functional tests are available in the [Functional Tests repo](https://
 
 • For any GitHub issues: [Report here](https://github.com/mosip/id-repository/issues)
 
+## Helm charts
+The charts under `helm/` (credential, credentialfeeder, credentialrequest, identity, idrepo, idrepo-saltgen, vid) are published to GHCR as OCI charts by `.github/workflows/chart-lint-publish.yml`, which calls the shared `BHS-BS/shared-workflow` `helm-lint-publish.yml` workflow:
+* A pull request that changes `helm/` lints the charts.
+* When the pull request is merged into `develop` or a `release*` branch, every chart is published to `oci://ghcr.io/bhs-bs/charts/<chart>`. The `charts/` path keeps the charts apart from the images (`ghcr.io/bhs-bs/<image>`).
+* A release version that is already published (e.g. `1.3.0`) is never overwritten: bump `version` in `Chart.yaml`. Pre-release versions (e.g. `0.0.1-develop`) are overwritten.
+* The charts use the `develop` images from GHCR (`ghcr.io/bhs-bs/<image>`), except `credentialfeeder`, which keeps `mosipid/id-repository-credentials-feeder`. The `idrepo` umbrella chart bundles the charts next to it. The images are private: the cluster needs a `ghcr.io` pull secret.
+
+Install a chart (needs a GitHub token with `read:packages`):
+```
+helm registry login ghcr.io -u <github-user>
+helm install idrepo oci://ghcr.io/bhs-bs/charts/idrepo --version <version>
+```
+
 ## License
 
 This project is licensed under the [Mozilla Public License 2.0](LICENSE).
