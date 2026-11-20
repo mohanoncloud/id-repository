@@ -74,6 +74,7 @@
 		<module>credential-request-generator</module>
 		<module>credential-service</module>
 		<module>id-repository-salt-generator</module>
+		<module>id-repository-paas-service</module>
 	</modules>
 
 	<properties>

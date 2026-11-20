@@ -32,6 +32,8 @@ jobs:
             DB_NAME: 'mypass_credential'
           - DB_LOCATION: 'db_scripts/mypass_idmap'
             DB_NAME: 'mypass_idmap'
+          - DB_LOCATION: 'db_scripts/mypass_idpaas'
+            DB_NAME: 'mypass_idpaas'
           - DB_LOCATION: 'db_scripts/mypass_idrepo'
             DB_NAME: 'mypass_idrepo'
       fail-fast: false

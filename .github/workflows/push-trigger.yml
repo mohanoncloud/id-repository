@@ -51,10 +51,10 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Every image is built from its module under id-repository/. Four of them depend on
+          # Every image is built from its module under id-repository/. Five of them depend on
           # id-repository-core; id-repository-salt-generator depends only on the parent pom.
-          ALL="credential-request-generator credential-service id-repository-identity-service id-repository-salt-generator id-repository-vid-service"
-          CORE_USERS="credential-request-generator credential-service id-repository-identity-service id-repository-vid-service"
+          ALL="credential-request-generator credential-service id-repository-identity-service id-repository-paas-service id-repository-salt-generator id-repository-vid-service"
+          CORE_USERS="credential-request-generator credential-service id-repository-identity-service id-repository-paas-service id-repository-vid-service"
 
           # Writes the docker-build matrix for the given images ([] for none) and ends the step.
           emit() {
@@ -113,7 +113,7 @@ jobs:
     with:
       SERVICE_LOCATION: ./id-repository
       BUILD_ARTIFACT: id-repository
-      MAVEN_NON_EXEC_ARTIFACTS: "credential-request-generator.jar, credential-service.jar, id-repository-identity-service.jar, id-repository-salt-generator.jar, id-repository-vid-service.jar"
+      MAVEN_NON_EXEC_ARTIFACTS: "credential-request-generator.jar, credential-service.jar, id-repository-identity-service.jar, id-repository-paas-service.jar, id-repository-salt-generator.jar, id-repository-vid-service.jar"
 
   # Runs only when the Maven build succeeded (`needs`), and only for the images `changes` picked.
   build-dockers:

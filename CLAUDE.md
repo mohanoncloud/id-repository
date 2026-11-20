@@ -20,6 +20,7 @@ The Maven parent is **`id-repository/pom.xml`**, not the repo root (`io.mosip.id
 | `credential-request-generator` | Spring Boot | 8094 | `/v1/credentialrequest` | `application,credential-request,id-repository` | `mypass_credential` |
 | `credential-service` | Spring Boot | 8095 | `/v1/credentialservice` | `application,credential-service,id-repository` | — |
 | `id-repository-salt-generator` | Spring Batch job | 8092 | — | `id-repository,application,kernel` | `mypass_idrepo`, `mypass_idmap` |
+| `id-repository-paas-service` | Spring Boot | 8096 | `/v1/enrolment` | `application,id-paas` | `mypass_idpaas` (scripts only, not wired yet) |
 
 - **Configuration:** each module has only `bootstrap.properties`; everything else comes from **mosip-config** through Spring Cloud Config. DB names are `mosip.idrepo.db.identity.db-name`, `mosip.idrepo.db.vid.db-name` and `mosip.credential.service.jdbc.url` in `id-repository-default.properties`.
 - **id-repository-core** holds what crosses services:
@@ -33,9 +34,15 @@ The Maven parent is **`id-repository/pom.xml`**, not the repo root (`io.mosip.id
   - `IdRepoServiceImpl` persists. Its class-level `@Transactional` is commented out, and object-store uploads run before DB writes on purpose. Keep that order.
   - `IdRepoDraftServiceImpl` (drafts for Registration Processor) is `@Transactional`; long REST/S3 calls inside it use `Propagation.NOT_SUPPORTED`. Follow the same pattern.
   - Biometrics (CBEFF) and documents are encrypted in S3/MinIO; only metadata and hashes are in Postgres.
+- **ID PAAS** (`id-repository-paas-service`, MP-379): the My Pass enrolment API (`/v1/enrolment/*`, contract: My Pass Enrolment API Specification) the app calls.
+  - Depends only on `id-repository-core`, never on identity-service classes, so it can move to its own repo. It calls the identity service's draft APIs over REST like any other client.
+  - The kernel auth adapter lets every path and method through: `mosip.service.end-points=/**` plus `mosip.service.exclude.auth.allowed.method=GET,POST,PUT,PATCH,DELETE` (the adapter's default is GET only, so without it every POST gets a `KER-ATH-*` 401). Actuator exposes only `info,health`, since nothing protects it. `EnrolmentSessionFilter` authenticates with the session token and device signature instead; header names and the token scheme are in `mosip.idpaas.session.*`.
+  - Errors are the spec's `ENR-*` codes and messages in `constant/EnrolmentErrorCode`; the app shows `errors[].message` word for word. Business failures are HTTP 200 with `errors[]`.
+  - `spi/` interfaces (OCR, image quality, AID generator, ID Repository draft client, passport hash) have stubs in `spi/stub` that fail with `ENR-GEN-003` (503) until each is decided. `StubSessionVerifier` accepts any token, so it loads only with `mosip.idpaas.session.stub-enabled=true` (tests and dev config); without it or a real verifier the service does not start.
+  - Passport images are never stored. The DataSource/JPA auto-configurations are excluded until a task persists data.
 - **Credential pipeline (asynchronous):** create/update writes `credential_request_status` rows → a scheduled `CredentialStatusManager` job → credential-request-generator (Spring Batch, `mypass_credential`) → credential-service builds the credential (`IdAuthProvider`, `QrCodeProvider`, `VerCredProvider`) and delivers it over WebSub.
 - **Services it calls:** keymanager, kernel ID generator, masterdata/syncdata (ID schema), PMS (partners), WebSub hub, audit-manager, the biometric SDK, datashare. Tokens through `kernel-auth-adapter`.
-- **Databases:** fresh install in `db_scripts/mypass_{idrepo,idmap,credential}/`, upgrades in `db_upgrade_scripts/`, legacy 1.1.x–1.2.1 release/revoke scripts in `db_release_scripts/`.
+- **Databases:** fresh install in `db_scripts/mypass_{idrepo,idmap,credential,idpaas}/`, upgrades in `db_upgrade_scripts/`, legacy 1.1.x–1.2.1 release/revoke scripts in `db_release_scripts/`.
 - **Other folders:** `api-test/` (separate Maven project, REST Assured/TestNG, runs against a deployed environment), `helm/` (credential, credentialfeeder, credentialrequest, identity, idrepo umbrella, idrepo-saltgen, vid; published to `oci://ghcr.io/bhs-bs/charts/<chart>`), `deploy/` (install/delete/restart scripts, namespace `idrepo`), `docs/`.
 
 ## Coding standards and conventions
@@ -80,7 +87,7 @@ mvn test -Dgpg.skip=true -pl id-repository-identity-service -am -DfailIfNoTests=
 mvn test -Dgpg.skip=true -pl id-repository-vid-service -Dtest=VidServiceImplTest#methodName   # core already installed
 ```
 
-- About 80 test classes (core 24, credential-request-generator 18, credential-service 17, identity 16, vid 5, salt-generator 3). JUnit 4 with `SpringRunner`, Mockito and some PowerMock.
+- About 87 test classes (core 24, credential-request-generator 18, credential-service 17, identity 16, paas 7, vid 5, salt-generator 3). JUnit 4 with `SpringRunner`, Mockito and some PowerMock.
 - The parent surefire argLine carries `--add-opens` flags for PowerMock on Java 21. Run tests through Maven or copy the flags into the IDE.
 - Test config is each module's `src/test/resources/application*.properties`. A new `@Value` property must be added there, or the test context fails to start.
 - No Postgres, config server or network needed.
@@ -124,7 +131,7 @@ mvn test -Dgpg.skip=true -pl id-repository-vid-service -Dtest=VidServiceImplTest
   - Still pending and must deploy with these scripts: **mosip-config `id-repository-default.properties`** (`mosip.idrepo.db.identity.db-name`, `mosip.idrepo.db.vid.db-name`, `mosip.credential.service.jdbc.url`).
   - Not renamed on purpose: roles (`idrepouser`, `idmapuser`, `credentialuser`), schemas, `io.mosip` packages, `mosip.*` property keys, the `api-internal.sandbox.mosip.net` host in `db_scripts/*/deploy.properties`.
 - **Upstream reusable workflows** live in `mosip/kattu`; `mypass/kattu` does not exist, so don't rename those `uses:` paths. BHS workflows live in `BHS-BS/shared-workflow`.
-- **Container user.** Every Dockerfile's container user is `mypass`: uid 1002 for identity, vid, credential-request-generator and credential-service; 1001 for salt-generator and api-test. The identity service and api-test still build `FROM mosipid/openjdk-21-jre:21.0.4`; `mypassid/openjdk-21-jre` does not exist yet.
+- **Container user.** Every Dockerfile's container user is `mypass`: uid 1002 for identity, vid, paas, credential-request-generator and credential-service; 1001 for salt-generator and api-test. The identity service and api-test still build `FROM mosipid/openjdk-21-jre:21.0.4`; `mypassid/openjdk-21-jre` does not exist yet.
 - **Helm charts are owned by DevOps; deploy-time images are upstream.** DevOps moved the charts to GHCR in MP-206: version `0.0.1-develop`, images `ghcr.io/bhs-bs/<image>:develop`. CI doesn't build the credentials feeder, so `helm/credentialfeeder` keeps `mosipid/id-repository-credentials-feeder`. `helm/` keeps the other upstream values (`runAsUser: mosip`, `mosipid/os-shell`), and `deploy/idrepo-apitestrig` keeps `mosipid/apitest-idrepo`. The lead decided (2026-11-10) that DevOps applies Helm changes at deployment/release, so don't change them in feature PRs.
   - The templates pass `runAsUser` into the env var `container_user`, but the images don't read it at runtime, so `mosip` there next to the image user `mypass` is harmless. Keep it a user name, not a number.
   - CI pushes the images to GHCR (`ghcr.io/bhs-bs/<module>:develop`, private, needs a `ghcr.io` pull secret); the charts use them.
