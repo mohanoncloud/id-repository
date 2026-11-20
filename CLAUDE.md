@@ -87,7 +87,7 @@ mvn test -Dgpg.skip=true -pl id-repository-identity-service -am -DfailIfNoTests=
 mvn test -Dgpg.skip=true -pl id-repository-vid-service -Dtest=VidServiceImplTest#methodName   # core already installed
 ```
 
-- About 87 test classes (core 24, credential-request-generator 18, credential-service 17, identity 16, paas 7, vid 5, salt-generator 3). JUnit 4 with `SpringRunner`, Mockito and some PowerMock.
+- About 90 test classes (core 24, credential-request-generator 18, credential-service 17, identity 16, paas 10, vid 5, salt-generator 3). JUnit 4 with `SpringRunner`, Mockito and some PowerMock.
 - The parent surefire argLine carries `--add-opens` flags for PowerMock on Java 21. Run tests through Maven or copy the flags into the IDE.
 - Test config is each module's `src/test/resources/application*.properties`. A new `@Value` property must be added there, or the test context fails to start.
 - No Postgres, config server or network needed.

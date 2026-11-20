@@ -10,7 +10,8 @@ The My Pass enrolment API that the app calls: `/v1/enrolment/*`. The contract is
 
 | Piece | Status |
 |---|---|
-| `POST /v1/enrolment/passport` | Parses the multipart request (`frontImage`, `backImage`, `request`) and the MOSIP envelope. The passport checks come with MP-256 / MP-261 / MP-257 / MP-258; until then the endpoint answers `ENR-GEN-003` (HTTP 503). |
+| `POST /v1/enrolment/passport` | Parses the multipart request (`frontImage`, `backImage`, `request`) and the MOSIP envelope, then runs the checks in `PassportScanServiceImpl` in the spec's order. Done: MRZ read (MP-261). Still to come: file and quality checks (MP-256), printed vs MRZ (MP-257), expiry (MP-258); until then the endpoint answers `ENR-GEN-003` (HTTP 503). |
+| MRZ read (`passport/mrz`, MP-261) | `Td3MrzReader`: TD3 (2 x 44) parsing, position-based OCR fixes (only where letters vs digits is known), all five ICAO check digits, document type `P`, date-of-birth century rule. Failures: `ENR-PSP-003` (unreadable, check digit, invalid date) and `ENR-PSP-004` (not a passport). Works on OCR text, so it waits for the OCR library before running on real images. |
 | Errors | All `ENR-PSP-*`, `ENR-SES-*` and `ENR-GEN-*` codes and messages from the spec, in `constant/EnrolmentErrorCode`. Business failures are HTTP 200 with `errors[]`. |
 | Session check | `EnrolmentSessionFilter`: `Authorization: Bearer <sessionToken>` + `X-Device-Signature` (header names and the token scheme in `mosip.idpaas.session.*`). Unexpected verifier errors return `ENR-GEN-003` with `errors[]`. **`StubSessionVerifier` accepts any token**, so it loads only with `mosip.idpaas.session.stub-enabled=true` (tests and dev config). Without it or a real verifier the service does not start. |
 | Stubs (`spi/stub`) | OCR, image quality, AID generator, ID Repository draft client and passport hash. Each fails with `ENR-GEN-003` (503), except the AID stub, which returns a RID-shaped id with placeholder centre and machine IDs. |

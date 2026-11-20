@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -37,6 +38,8 @@ import io.mosip.idrepository.paas.service.impl.PassportScanServiceImpl;
 import io.mosip.idrepository.paas.session.EnrolmentSession;
 import io.mosip.idrepository.paas.session.SessionVerifier;
 import io.mosip.idrepository.paas.session.StubSessionVerifier;
+import io.mosip.idrepository.paas.passport.mrz.Td3MrzReader;
+import io.mosip.idrepository.paas.spi.stub.StubPassportImageReader;
 
 public class PassportControllerTest {
 
@@ -203,7 +206,8 @@ public class PassportControllerTest {
 
 	@Test
 	public void scaffoldServiceAnswersEnrGen003With503() throws Exception {
-		mvc(new PassportScanServiceImpl(), new StubSessionVerifier())
+		mvc(new PassportScanServiceImpl(new StubPassportImageReader(), new Td3MrzReader(Clock.systemUTC())),
+				new StubSessionVerifier())
 				.perform(signed(passport().file(image("frontImage")).file(image("backImage")).file(requestPart(VALID_REQUEST))))
 				.andExpect(status().isServiceUnavailable())
 				.andExpect(jsonPath("$.errors[0].errorCode").value("ENR-GEN-003"));
