@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.mosip.idrepository.paas.config.PassportProperties;
 import io.mosip.idrepository.paas.config.SessionProperties;
 import io.mosip.idrepository.paas.constant.EnrolmentErrorCode;
 import io.mosip.idrepository.paas.dto.passport.PassportScanResponse;
@@ -39,6 +40,7 @@ import io.mosip.idrepository.paas.session.EnrolmentSession;
 import io.mosip.idrepository.paas.session.SessionVerifier;
 import io.mosip.idrepository.paas.session.StubSessionVerifier;
 import io.mosip.idrepository.paas.passport.mrz.Td3MrzReader;
+import io.mosip.idrepository.paas.passport.validation.PassportExpiryCheck;
 import io.mosip.idrepository.paas.spi.stub.StubPassportImageReader;
 
 public class PassportControllerTest {
@@ -206,8 +208,8 @@ public class PassportControllerTest {
 
 	@Test
 	public void scaffoldServiceAnswersEnrGen003With503() throws Exception {
-		mvc(new PassportScanServiceImpl(new StubPassportImageReader(), new Td3MrzReader(Clock.systemUTC())),
-				new StubSessionVerifier())
+		mvc(new PassportScanServiceImpl(new StubPassportImageReader(), new Td3MrzReader(Clock.systemUTC()),
+				new PassportExpiryCheck(Clock.systemUTC(), new PassportProperties())), new StubSessionVerifier())
 				.perform(signed(passport().file(image("frontImage")).file(image("backImage")).file(requestPart(VALID_REQUEST))))
 				.andExpect(status().isServiceUnavailable())
 				.andExpect(jsonPath("$.errors[0].errorCode").value("ENR-GEN-003"));
