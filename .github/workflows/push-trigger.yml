@@ -31,6 +31,7 @@ jobs:
   # check "Expected" forever.
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       # To look up the last successful run of this workflow on the branch.
@@ -141,6 +142,7 @@ jobs:
     needs: [changes, build-maven-id-repository, build-dockers]
     if: ${{ always() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Check prerequisite results
         env:
