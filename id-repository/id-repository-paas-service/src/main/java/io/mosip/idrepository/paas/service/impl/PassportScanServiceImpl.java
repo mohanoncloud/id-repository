@@ -9,6 +9,8 @@ import io.mosip.idrepository.paas.exception.EnrolmentException;
 import io.mosip.idrepository.paas.passport.compare.PrintedVsMrzComparator;
 import io.mosip.idrepository.paas.passport.mrz.PassportMrz;
 import io.mosip.idrepository.paas.passport.mrz.Td3MrzReader;
+import io.mosip.idrepository.paas.passport.upload.PassportImageValidator;
+import io.mosip.idrepository.paas.passport.upload.SanitisedImage;
 import io.mosip.idrepository.paas.passport.validation.PassportExpiryCheck;
 import io.mosip.idrepository.paas.service.PassportScanInput;
 import io.mosip.idrepository.paas.service.PassportScanService;
@@ -20,7 +22,8 @@ import io.mosip.idrepository.paas.spi.PassportImageReader.PassportImageReading;
  * Runs the passport checks in the spec's order (API spec section 3); the first failure stops the rest.
  *
  * <ol>
- *   <li>File and quality checks: MP-256 (not yet)</li>
+ *   <li><b>File checks on both images: MP-256</b>, ENR-PSP-001 (HTTP 413 if too large). The image quality
+ *       check (blur, glare, whole page: ENR-PSP-002) waits for the OCR / image library decision (MP-397).</li>
  *   <li><b>MRZ read and check digits: MP-261</b>, ENR-PSP-003 / ENR-PSP-004</li>
  *   <li>Issuing state and passport number format: MP-262 (on hold)</li>
  *   <li><b>Printed details vs MRZ: MP-257</b>, ENR-PSP-007 (mismatch) / ENR-PSP-002 (printed details
@@ -36,13 +39,15 @@ import io.mosip.idrepository.paas.spi.PassportImageReader.PassportImageReading;
 @Service
 public class PassportScanServiceImpl implements PassportScanService {
 
+	private final PassportImageValidator imageValidator;
 	private final PassportImageReader imageReader;
 	private final Td3MrzReader mrzReader;
 	private final PrintedVsMrzComparator printedVsMrz;
 	private final PassportExpiryCheck expiryCheck;
 
-	public PassportScanServiceImpl(PassportImageReader imageReader, Td3MrzReader mrzReader,
-			PrintedVsMrzComparator printedVsMrz, PassportExpiryCheck expiryCheck) {
+	public PassportScanServiceImpl(PassportImageValidator imageValidator, PassportImageReader imageReader,
+			Td3MrzReader mrzReader, PrintedVsMrzComparator printedVsMrz, PassportExpiryCheck expiryCheck) {
+		this.imageValidator = imageValidator;
 		this.imageReader = imageReader;
 		this.mrzReader = mrzReader;
 		this.printedVsMrz = printedVsMrz;
@@ -51,7 +56,9 @@ public class PassportScanServiceImpl implements PassportScanService {
 
 	@Override
 	public PassportScanResponse scan(EnrolmentSession session, PassportScanInput input) {
-		PassportImageReading reading = imageReader.read(input.frontImage());
+		SanitisedImage front = imageValidator.validate("frontImage", input.frontImage());
+		imageValidator.validate("backImage", input.backImage()); // checked, not OCR'd (spec needs both)
+		PassportImageReading reading = imageReader.read(front);
 		PassportMrz mrz = mrzReader.read(reading.mrzText());
 		printedVsMrz.requireMatch(reading.printedFields(), mrz);
 		expiryCheck.requireNotExpired(mrz.expiryDate());

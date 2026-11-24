@@ -1,23 +1,31 @@
 package io.mosip.idrepository.paas.service.impl;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.Test;
 import org.springframework.http.HttpStatus;
 
+import io.mosip.idrepository.paas.TestImages;
 import io.mosip.idrepository.paas.config.PassportProperties;
 import io.mosip.idrepository.paas.constant.EnrolmentErrorCode;
 import io.mosip.idrepository.paas.dto.passport.PassportScanRequest;
 import io.mosip.idrepository.paas.exception.EnrolmentException;
 import io.mosip.idrepository.paas.passport.compare.PrintedVsMrzComparator;
 import io.mosip.idrepository.paas.passport.mrz.Td3MrzReader;
+import io.mosip.idrepository.paas.passport.upload.PassportImageValidator;
+import io.mosip.idrepository.paas.passport.upload.SanitisedImage;
 import io.mosip.idrepository.paas.passport.validation.PassportExpiryCheck;
 import io.mosip.idrepository.paas.service.PassportScanInput;
 import io.mosip.idrepository.paas.session.EnrolmentSession;
@@ -26,7 +34,7 @@ import io.mosip.idrepository.paas.spi.PassportImageReader.OcrField;
 import io.mosip.idrepository.paas.spi.PassportImageReader.PassportImageReading;
 import io.mosip.idrepository.paas.spi.stub.StubPassportImageReader;
 
-/** The checks run on what the OCR read, in the spec's order: MRZ read, printed vs MRZ, expiry, then the rest. */
+/** The checks run in the spec's order: file checks, MRZ read, printed vs MRZ, expiry, then the rest. */
 public class PassportScanServiceImplTest {
 
 	/** ICAO 9303 specimen; its passport expires on 15 April 2012. */
@@ -41,8 +49,11 @@ public class PassportScanServiceImplTest {
 
 	private final Td3MrzReader mrzReader = new Td3MrzReader(TODAY);
 	private final EnrolmentSession session = new EnrolmentSession("s1", null);
-	private final PassportScanInput input = new PassportScanInput(new byte[] { 1 }, new byte[] { 2 },
-			new PassportScanRequest());
+	private final PassportScanInput input = images(TestImages.validJpeg(), TestImages.png(1300, 1800));
+
+	private static PassportScanInput images(byte[] front, byte[] back) {
+		return new PassportScanInput(front, back, new PassportScanRequest());
+	}
 
 	/** Printed details that match the specimen MRZ. */
 	private static Map<String, OcrField> specimenPrinted() {
@@ -71,13 +82,59 @@ public class PassportScanServiceImplTest {
 
 	private PassportScanServiceImpl service(PassportImageReader imageReader, Clock expiryClock) {
 		PassportProperties properties = new PassportProperties();
-		return new PassportScanServiceImpl(imageReader, mrzReader, new PrintedVsMrzComparator(properties),
-				new PassportExpiryCheck(expiryClock, properties));
+		return new PassportScanServiceImpl(new PassportImageValidator(properties), imageReader, mrzReader,
+				new PrintedVsMrzComparator(properties), new PassportExpiryCheck(expiryClock, properties));
 	}
 
 	@Test
 	public void withTheStubOcrTheScanStopsAtTheImageRead() {
 		assertFails(service(new StubPassportImageReader()), EnrolmentErrorCode.GEN_003, HttpStatus.SERVICE_UNAVAILABLE);
+	}
+
+	// ------------------------------------------------------------------ file checks (MP-256) come first
+
+	@Test
+	public void frontImageThatFailsTheFileChecksIsEnrPsp001AndIsNeverSentToOcr() {
+		AtomicBoolean ocrCalled = new AtomicBoolean();
+		PassportImageReader reader = image -> {
+			ocrCalled.set(true);
+			return new PassportImageReading(SPECIMEN, specimenPrinted());
+		};
+		byte[] pdf = "%PDF-1.4 fake".getBytes(StandardCharsets.US_ASCII);
+		assertFails(service(reader), images(pdf, TestImages.validJpeg()), EnrolmentErrorCode.PSP_001, HttpStatus.OK);
+		assertFalse(ocrCalled.get());
+	}
+
+	@Test
+	public void backImageIsCheckedToo() {
+		assertFails(service(readsMrz(SPECIMEN)), images(TestImages.validJpeg(), TestImages.jpeg(1000, 700)),
+				EnrolmentErrorCode.PSP_001, HttpStatus.OK);
+	}
+
+	@Test
+	public void oversizeImageIsEnrPsp001WithHttp413() {
+		byte[] big = Arrays.copyOf(TestImages.validJpeg(), 5 * 1024 * 1024 + 1);
+		assertFails(service(readsMrz(SPECIMEN)), images(big, TestImages.validJpeg()), EnrolmentErrorCode.PSP_001,
+				HttpStatus.PAYLOAD_TOO_LARGE);
+	}
+
+	@Test
+	public void fileChecksComeBeforeTheMrzRead() {
+		// A bad image and a bad MRZ: the file check fails first (spec order), so ENR-PSP-001, not 003.
+		assertFails(service(readsMrz("not an MRZ")), images(new byte[] { 1, 2, 3 }, TestImages.validJpeg()),
+				EnrolmentErrorCode.PSP_001, HttpStatus.OK);
+	}
+
+	@Test
+	public void ocrGetsTheCleanedFrontImage() {
+		AtomicReference<SanitisedImage> seen = new AtomicReference<>();
+		PassportImageReader reader = image -> {
+			seen.set(image);
+			return new PassportImageReading(SPECIMEN, specimenPrinted());
+		};
+		assertFails(service(reader), EnrolmentErrorCode.PSP_008, HttpStatus.OK); // specimen is expired
+		assertEquals(SanitisedImage.Format.JPEG, seen.get().format());
+		assertEquals(1600, seen.get().width());
 	}
 
 	@Test
@@ -130,8 +187,13 @@ public class PassportScanServiceImplTest {
 	}
 
 	private void assertFails(PassportScanServiceImpl service, EnrolmentErrorCode code, HttpStatus status) {
+		assertFails(service, input, code, status);
+	}
+
+	private void assertFails(PassportScanServiceImpl service, PassportScanInput scanInput, EnrolmentErrorCode code,
+			HttpStatus status) {
 		try {
-			service.scan(session, input);
+			service.scan(session, scanInput);
 			fail("expected " + code.getCode());
 		} catch (EnrolmentException e) {
 			assertEquals(code, e.getErrorCode());

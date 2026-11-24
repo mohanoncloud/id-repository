@@ -2,6 +2,7 @@ package io.mosip.idrepository.paas.spi.stub;
 
 import org.springframework.stereotype.Component;
 
+import io.mosip.idrepository.paas.passport.upload.SanitisedImage;
 import io.mosip.idrepository.paas.spi.PassportImageReader;
 
 /** Until the OCR library is approved: every read fails with ENR-GEN-003 (503). */
@@ -15,7 +16,7 @@ public class StubPassportImageReader implements PassportImageReader {
 	}
 
 	@Override
-	public PassportImageReading read(byte[] frontImage) {
+	public PassportImageReading read(SanitisedImage frontImage) {
 		throw NotConfigured.fail(WHAT);
 	}
 }

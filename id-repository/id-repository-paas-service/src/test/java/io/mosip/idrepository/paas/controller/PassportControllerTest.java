@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.mosip.idrepository.paas.TestImages;
 import io.mosip.idrepository.paas.config.PassportProperties;
 import io.mosip.idrepository.paas.config.SessionProperties;
 import io.mosip.idrepository.paas.constant.EnrolmentErrorCode;
@@ -41,6 +42,7 @@ import io.mosip.idrepository.paas.session.SessionVerifier;
 import io.mosip.idrepository.paas.session.StubSessionVerifier;
 import io.mosip.idrepository.paas.passport.compare.PrintedVsMrzComparator;
 import io.mosip.idrepository.paas.passport.mrz.Td3MrzReader;
+import io.mosip.idrepository.paas.passport.upload.PassportImageValidator;
 import io.mosip.idrepository.paas.passport.validation.PassportExpiryCheck;
 import io.mosip.idrepository.paas.spi.stub.StubPassportImageReader;
 
@@ -209,10 +211,13 @@ public class PassportControllerTest {
 
 	@Test
 	public void scaffoldServiceAnswersEnrGen003With503() throws Exception {
-		mvc(new PassportScanServiceImpl(new StubPassportImageReader(), new Td3MrzReader(Clock.systemUTC()),
-				new PrintedVsMrzComparator(new PassportProperties()),
-				new PassportExpiryCheck(Clock.systemUTC(), new PassportProperties())), new StubSessionVerifier())
-				.perform(signed(passport().file(image("frontImage")).file(image("backImage")).file(requestPart(VALID_REQUEST))))
+		PassportProperties properties = new PassportProperties();
+		byte[] jpeg = TestImages.validJpeg(); // passes the file checks, so the scan reaches the stub OCR
+		mvc(new PassportScanServiceImpl(new PassportImageValidator(properties), new StubPassportImageReader(),
+				new Td3MrzReader(Clock.systemUTC()), new PrintedVsMrzComparator(properties),
+				new PassportExpiryCheck(Clock.systemUTC(), properties)), new StubSessionVerifier())
+				.perform(signed(passport().file(new MockMultipartFile("frontImage", "f.jpg", "image/jpeg", jpeg))
+						.file(new MockMultipartFile("backImage", "b.jpg", "image/jpeg", jpeg)).file(requestPart(VALID_REQUEST))))
 				.andExpect(status().isServiceUnavailable())
 				.andExpect(jsonPath("$.errors[0].errorCode").value("ENR-GEN-003"));
 	}

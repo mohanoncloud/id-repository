@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.unit.DataSize;
 
 import lombok.Data;
 
@@ -12,6 +13,18 @@ import lombok.Data;
 @Data
 @ConfigurationProperties(prefix = "mosip.idpaas.passport")
 public class PassportProperties {
+
+	/** Largest accepted image file (ENR-PSP-001, HTTP 413 if larger). Keep in line with the multipart limit. */
+	private DataSize imageMaxSize = DataSize.ofMegabytes(5);
+
+	/** Smallest accepted long side (the larger of width and height), in pixels (ENR-PSP-001). */
+	private int imageMinLongSide = 1200;
+
+	/**
+	 * Largest accepted width x height, read from the header before decoding (decompression bomb protection). 40
+	 * megapixels is well above any phone photo.
+	 */
+	private long imageMaxPixels = 40_000_000L;
 
 	/** Time zone that decides today's date for the expiry check (ENR-PSP-008). */
 	private String expiryZone = "America/Nassau";

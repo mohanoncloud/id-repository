@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 
 import io.mosip.idrepository.paas.constant.EnrolmentErrorCode;
 import io.mosip.idrepository.paas.exception.EnrolmentException;
+import io.mosip.idrepository.paas.passport.upload.SanitisedImage;
 import io.mosip.idrepository.paas.session.StubSessionVerifier;
 
 public class StubsTest {
@@ -26,7 +27,8 @@ public class StubsTest {
 
 	@Test
 	public void unconfiguredStubsFailWithEnrGen003And503() {
-		assertNotConfigured(() -> new StubPassportImageReader().read(new byte[1]));
+		assertNotConfigured(() -> new StubPassportImageReader()
+				.read(new SanitisedImage(new byte[1], SanitisedImage.Format.JPEG, 1600, 1200, 1)));
 		assertNotConfigured(() -> new StubImageQualityChecker().check(new byte[1]));
 		assertNotConfigured(() -> new StubPassportHashService().hash("BHS", "P1234567"));
 		assertNotConfigured(() -> new StubIdRepoDraftClient().createDraft("1"));

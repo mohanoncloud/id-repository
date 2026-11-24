@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,9 +41,10 @@ import io.mosip.idrepository.paas.spi.PassportImageReader.OcrField;
 import io.mosip.idrepository.paas.spi.PassportImageReader.PassportImageReading;
 
 /**
- * {@code POST /passport} through the whole application: session filter, controller, MRZ read, printed vs MRZ,
- * expiry check and the error envelope, with the real config binding. Only the OCR is faked (it returns the MRZ
- * text and the printed fields), because the OCR library isn't chosen yet (MP-397). Spring Security's default
+ * {@code POST /passport} through the whole application: session filter, controller, file checks, MRZ read, printed
+ * vs MRZ, expiry check and the error envelope, with the real config binding. Images are synthetic JPEG/PNG files.
+ * Only the OCR is faked (it returns the MRZ text and the printed fields), because the OCR library isn't chosen yet
+ * (MP-397). Spring Security's default
  * chain is excluded as in {@link SwaggerTest}: in an environment the kernel auth adapter lets these paths through.
  *
  * <p>The clock is fixed at 23:59:59 on 18 Nov 2026 in Nassau, which is already 19 Nov in UTC.
@@ -62,7 +64,10 @@ public class PassportScanHttpTest {
 	private static final String EXPIRES_TODAY_IN_NASSAU = BHS_LINE1 + "\n" + "AB12345671BHS9001158M2611181<<<<<<<<<<<<<<<8";
 	private static final String EXPIRED_YESTERDAY_IN_NASSAU = BHS_LINE1 + "\n" + "AB12345671BHS9001158M2611170<<<<<<<<<<<<<<<4";
 
-	private static final String VALID_REQUEST = "{\"id\":\"mosip.enrolment.passport\",\"version\":\"1.0\","
+	/** Synthetic 1600 x 1200 JPEG that passes the file checks. */
+	private static final byte[] VALID_IMAGE = TestImages.validJpeg();
+
+	private static final String VALID_REQUEST ="{\"id\":\"mosip.enrolment.passport\",\"version\":\"1.0\","
 			+ "\"requesttime\":\"2026-11-18T10:18:05.000Z\",\"request\":{\"additionalDetails\":{\"address\":"
 			+ "{\"addressLine1\":\"12 Shirley Street\",\"city\":\"Nassau\",\"province\":\"New Providence\","
 			+ "\"region\":\"New Providence\",\"zone\":\"Centreville\"}}}}";
@@ -193,29 +198,69 @@ public class PassportScanHttpTest {
 				.andExpect(jsonPath("$.errors[0].message").value(EnrolmentErrorCode.PSP_004.getMessage()));
 	}
 
+	// ------------------------------------------------------------------ file checks (MP-256)
+
+	@Test
+	public void pdfRenamedAsJpgIsEnrPsp001WithTheSpecMessage() throws Exception {
+		byte[] pdf = "%PDF-1.4 fake scan".getBytes(StandardCharsets.US_ASCII);
+		scan(SPECIMEN, specimenPrinted(), pdf, VALID_IMAGE).andExpect(status().isOk())
+				.andExpect(jsonPath("$.response").doesNotExist())
+				.andExpect(jsonPath("$.errors[0].errorCode").value("ENR-PSP-001"))
+				.andExpect(jsonPath("$.errors[0].message").value(EnrolmentErrorCode.PSP_001.getMessage()));
+	}
+
+	@Test
+	public void lowResolutionBackImageIsEnrPsp001() throws Exception {
+		scan(SPECIMEN, specimenPrinted(), VALID_IMAGE, TestImages.jpeg(1100, 800)).andExpect(status().isOk())
+				.andExpect(jsonPath("$.errors[0].errorCode").value("ENR-PSP-001"));
+	}
+
+	@Test
+	public void imageOverFiveMegabytesIsHttp413WithEnrPsp001() throws Exception {
+		byte[] big = Arrays.copyOf(VALID_IMAGE, 5 * 1024 * 1024 + 1);
+		scan(SPECIMEN, specimenPrinted(), big, VALID_IMAGE).andExpect(status().isPayloadTooLarge())
+				.andExpect(jsonPath("$.errors[0].errorCode").value("ENR-PSP-001"));
+	}
+
+	@Test
+	public void fileChecksComeBeforeTheMrzRead() throws Exception {
+		// A bad image and an unreadable MRZ: the file check fails first (spec order).
+		scan(null, specimenPrinted(), new byte[] { 1, 2, 3 }, VALID_IMAGE).andExpect(status().isOk())
+				.andExpect(jsonPath("$.errors[0].errorCode").value("ENR-PSP-001"));
+	}
+
+	@Test
+	public void pngImagesAreAccepted() throws Exception {
+		scan(EXPIRES_TODAY_IN_NASSAU, bahamasPrinted("18 NOV 2026"), TestImages.png(1200, 1700), TestImages.png(1700, 1200))
+				.andExpect(status().isServiceUnavailable())
+				.andExpect(jsonPath("$.errors[0].errorCode").value("ENR-GEN-003"));
+	}
+
 	@Test
 	public void sessionIsCheckedBeforeAnything() throws Exception {
-		mvc.perform(passport()).andExpect(status().isUnauthorized())
+		mvc.perform(passport(VALID_IMAGE, VALID_IMAGE)).andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.errors[0].errorCode").value("ENR-SES-001"))
 				.andExpect(jsonPath("$.errors").value(not(empty())));
 	}
 
 	private ResultActions scan(String mrzText, Map<String, OcrField> printed) throws Exception {
+		return scan(mrzText, printed, VALID_IMAGE, VALID_IMAGE);
+	}
+
+	private ResultActions scan(String mrzText, Map<String, OcrField> printed, byte[] front, byte[] back)
+			throws Exception {
 		when(imageReader.read(any())).thenReturn(new PassportImageReading(mrzText, printed));
-		MockMultipartHttpServletRequestBuilder request = passport();
+		MockMultipartHttpServletRequestBuilder request = passport(front, back);
 		request.header("Authorization", "Bearer session-token-123");
 		request.header("X-Device-Signature", "eyJhbGciOiJFUzI1NiJ9..c2lnbmF0dXJl");
 		return mvc.perform(request);
 	}
 
-	private static MockMultipartHttpServletRequestBuilder passport() {
-		return (MockMultipartHttpServletRequestBuilder) multipart("/passport").file(image("frontImage"))
-				.file(image("backImage"))
+	private static MockMultipartHttpServletRequestBuilder passport(byte[] front, byte[] back) {
+		return (MockMultipartHttpServletRequestBuilder) multipart("/passport")
+				.file(new MockMultipartFile("frontImage", "front.jpg", "image/jpeg", front))
+				.file(new MockMultipartFile("backImage", "back.jpg", "image/jpeg", back))
 				.file(new MockMultipartFile("request", "", MediaType.APPLICATION_JSON_VALUE,
 						VALID_REQUEST.getBytes(StandardCharsets.UTF_8)));
-	}
-
-	private static MockMultipartFile image(String part) {
-		return new MockMultipartFile(part, part + ".jpg", "image/jpeg", new byte[] { (byte) 0xFF, (byte) 0xD8, 1, 2 });
 	}
 }
