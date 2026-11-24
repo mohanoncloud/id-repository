@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import io.mosip.idrepository.paas.constant.EnrolmentErrorCode;
 import io.mosip.idrepository.paas.dto.passport.PassportScanResponse;
 import io.mosip.idrepository.paas.exception.EnrolmentException;
+import io.mosip.idrepository.paas.passport.compare.PrintedVsMrzComparator;
 import io.mosip.idrepository.paas.passport.mrz.PassportMrz;
 import io.mosip.idrepository.paas.passport.mrz.Td3MrzReader;
 import io.mosip.idrepository.paas.passport.validation.PassportExpiryCheck;
@@ -22,7 +23,9 @@ import io.mosip.idrepository.paas.spi.PassportImageReader.PassportImageReading;
  *   <li>File and quality checks: MP-256 (not yet)</li>
  *   <li><b>MRZ read and check digits: MP-261</b>, ENR-PSP-003 / ENR-PSP-004</li>
  *   <li>Issuing state and passport number format: MP-262 (on hold)</li>
- *   <li>Printed details vs MRZ: MP-257 (not yet; goes before the expiry check)</li>
+ *   <li><b>Printed details vs MRZ: MP-257</b>, ENR-PSP-007 (mismatch) / ENR-PSP-002 (printed details
+ *       unreadable). Setting the session to ASSISTED_DESK on a mismatch waits for the session store
+ *       (MP-246–249).</li>
  *   <li><b>Expiry: MP-258</b>, ENR-PSP-008</li>
  *   <li>Already enrolled, draft create/update, record: MP-258 / MP-259 (on hold)</li>
  * </ol>
@@ -35,12 +38,14 @@ public class PassportScanServiceImpl implements PassportScanService {
 
 	private final PassportImageReader imageReader;
 	private final Td3MrzReader mrzReader;
+	private final PrintedVsMrzComparator printedVsMrz;
 	private final PassportExpiryCheck expiryCheck;
 
 	public PassportScanServiceImpl(PassportImageReader imageReader, Td3MrzReader mrzReader,
-			PassportExpiryCheck expiryCheck) {
+			PrintedVsMrzComparator printedVsMrz, PassportExpiryCheck expiryCheck) {
 		this.imageReader = imageReader;
 		this.mrzReader = mrzReader;
+		this.printedVsMrz = printedVsMrz;
 		this.expiryCheck = expiryCheck;
 	}
 
@@ -48,6 +53,7 @@ public class PassportScanServiceImpl implements PassportScanService {
 	public PassportScanResponse scan(EnrolmentSession session, PassportScanInput input) {
 		PassportImageReading reading = imageReader.read(input.frontImage());
 		PassportMrz mrz = mrzReader.read(reading.mrzText());
+		printedVsMrz.requireMatch(reading.printedFields(), mrz);
 		expiryCheck.requireNotExpired(mrz.expiryDate());
 		return remainingChecks(mrz);
 	}
