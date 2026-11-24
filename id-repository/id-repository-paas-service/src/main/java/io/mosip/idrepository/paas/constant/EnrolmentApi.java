@@ -12,6 +12,12 @@ public final class EnrolmentApi {
 
 	public static final String PASSPORT = "mosip.enrolment.passport";
 
+	/** Public app config (MP-243): the one endpoint called without a session. */
+	public static final String APP_CONFIG = "mosip.enrolment.app.config";
+
+	/** Path of the app config endpoint within the service. */
+	public static final String APP_CONFIG_PATH = "/app/config";
+
 	/** Used when the endpoint can't be determined (e.g. an unknown path). */
 	public static final String DEFAULT = "mosip.enrolment";
 
@@ -23,7 +29,16 @@ public final class EnrolmentApi {
 
 	/** Envelope id for the endpoint a request is calling. */
 	public static String forRequest(HttpServletRequest request) {
-		return pathWithinService(request).startsWith("/passport") ? PASSPORT : DEFAULT;
+		String path = pathWithinService(request);
+		if (path.startsWith("/passport")) {
+			return PASSPORT;
+		}
+		return isAppConfig(request) ? APP_CONFIG : DEFAULT;
+	}
+
+	/** True for the public app config endpoint, which is called before the app has a session. */
+	public static boolean isAppConfig(HttpServletRequest request) {
+		return APP_CONFIG_PATH.equals(pathWithinService(request));
 	}
 
 	/** The request path without the {@code /v1/enrolment} context path, e.g. {@code /passport}. */

@@ -29,3 +29,5 @@ test.txt
 /.recommenders/
 **/*.iml
 .vscode
+# Local Docker logs from running the services by hand
+**/local-dev-setup/*.log

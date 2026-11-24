@@ -36,6 +36,15 @@ public class EnrolmentSessionFilterTest {
 		assertFalse(filter.shouldNotFilter(request("/passport")));
 	}
 
+	/** The app reads its config before it has a session (MP-243); only that exact path is public. */
+	@Test
+	public void onlyTheExactAppConfigPathSkipsTheSessionCheck() {
+		assertTrue(filter.shouldNotFilter(request("/app/config")));
+		assertFalse(filter.shouldNotFilter(request("/app/config/../passport")));
+		assertFalse(filter.shouldNotFilter(request("/app/configx")));
+		assertFalse(filter.shouldNotFilter(request("/app")));
+	}
+
 	@Test
 	public void validHeadersSetTheSessionAndContinue() throws Exception {
 		MockHttpServletRequest request = request("/passport");

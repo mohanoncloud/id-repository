@@ -25,7 +25,7 @@ import jakarta.servlet.http.HttpServletResponse;
  * Authenticates every enrolment request with the session token and device signature (API spec section 1,
  * {@code ENR-SES-001} / {@code ENR-SES-003}) and stores the verified {@link EnrolmentSession} as a request
  * attribute. Any other verifier failure is {@code ENR-GEN-003}, so the app always gets {@code errors[]}.
- * Actuator and API docs endpoints are not filtered.
+ * Actuator, API docs and the public app config endpoint are not filtered.
  */
 public class EnrolmentSessionFilter extends OncePerRequestFilter {
 
@@ -44,11 +44,15 @@ public class EnrolmentSessionFilter extends OncePerRequestFilter {
 		this.mapper = mapper;
 	}
 
-	/** Health checks and the API docs (Swagger UI and OpenAPI JSON) don't need a session. */
+	/**
+	 * Health checks, the API docs (Swagger UI and OpenAPI JSON) and the app config don't need a session. The
+	 * app reads its config at launch, before it has a session (MP-243).
+	 */
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
 		String path = EnrolmentApi.pathWithinService(request);
-		return path.startsWith("/actuator") || path.startsWith("/swagger-ui") || path.startsWith("/v3/api-docs");
+		return path.startsWith("/actuator") || path.startsWith("/swagger-ui") || path.startsWith("/v3/api-docs")
+				|| EnrolmentApi.isAppConfig(request);
 	}
 
 	@Override
