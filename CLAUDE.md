@@ -106,7 +106,7 @@ mvn test -Dgpg.skip=true -pl id-repository-vid-service -Dtest=VidServiceImplTest
     - A `changes` job picks which service images the change needs.
     - `BHS-BS/shared-workflow` `maven-build.yml@develop` builds `./id-repository`, then `docker-build.yml@develop` builds each changed service and pushes it to GHCR.
     - **`ci-gate`** is the required check. The api-test compile job is commented out.
-  - `db-test.yml` (one matrix entry per DB) and `clear-artifacts.yml` still call upstream `mosip/kattu`.
+  - `db-test.yml` (one matrix entry per DB) runs the DB test steps inline (copied from `mosip/kattu`), only when `db_scripts/` changes, with a 10-min limit. `clear-artifacts.yml` was removed: it never ran (the default branch is `main`).
   - `chart-lint-publish.yml` calls `BHS-BS/shared-workflow` `helm-lint-publish.yml@develop` (MP-206). PRs that change `helm/` lint the charts; a merge into `develop` or `release*` that changes `helm/` publishes them to `oci://ghcr.io/bhs-bs/charts/<chart>`. `release*` is kept on purpose for release branches.
   - The DB test workflow keeps its legacy push patterns (`release*`, `master`, `1.*`, `develop*`) plus `main`, on purpose for now, so it does not yet follow the BHS workflow rule.
 

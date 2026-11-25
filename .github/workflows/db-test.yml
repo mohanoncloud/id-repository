@@ -1,30 +1,38 @@
 name: PostgreSQL Test
 
+# Deploys db_scripts/ into a throwaway PostgreSQL to check the scripts run.
+# Runs only when db_scripts/ changes: before, every pull request ran it (35 runs in 30 days)
+# even when no script had changed. This check is not a required status check, so a PR that
+# does not touch db_scripts/ simply does not show it.
 on:
-  release:
-    types: [published]
   pull_request:
     types: [opened, reopened, synchronize]
-  workflow_dispatch:
-    inputs:
-      message:
-        description: 'Message for manually triggering'
-        required: false
-        default: 'Triggered for Updates'
-        type: string
-  push:
-    branches:
-      - '!release-branch'
-      - release*
-      - master
-      - 1.*
-      - develop*
-      - main
     paths:
       - 'db_scripts/**'
+      - '.github/workflows/db-test.yml'
+  push:
+    # develop only, not develop*: that pattern also matched every develop-<ticket> work branch.
+    # The upstream release*, master and 1.* lines are not built or deployed by BHS-BS.
+    branches:
+      - develop
+    paths:
+      - 'db_scripts/**'
+      - '.github/workflows/db-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to a PR cancels the superseded run.
+concurrency:
+  group: db-test-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build-db-test:
+  # Inline copy of mosip/kattu db-test.yml@master, so this repo no longer depends on an
+  # upstream branch that can change, and so the job can have a time limit (a job that calls a
+  # reusable workflow cannot set timeout-minutes).
+  postgres-setup-and-scripts-test:
     strategy:
       matrix:
         include:
@@ -38,6 +46,32 @@ jobs:
             DB_NAME: 'mypass_idrepo'
       fail-fast: false
     name: ${{ matrix.DB_NAME }}
-    uses: mosip/kattu/.github/workflows/db-test.yml@master
-    with:
-      DB_LOCATION: ${{ matrix.DB_LOCATION}}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        # Wait until PostgreSQL accepts connections instead of a fixed sleep.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run DB Test
+        working-directory: ${{ matrix.DB_LOCATION }}
+        run: |
+          export SU_USER_PWD=postgres
+          export DBUSER_PWD=postgres
+          sed -i 's/DB_SERVERIP=.*/DB_SERVERIP=localhost/g' deploy.properties
+          sed -i 's/DB_PORT=.*/DB_PORT=5432/g' deploy.properties
+          sed -i 's/SU_USER=.*/SU_USER=postgres/g' deploy.properties
+          chmod +x deploy.sh
+          ./deploy.sh deploy.properties
