@@ -18,7 +18,7 @@ public class EnrolmentErrorCodeTest {
 		Set<String> codes = Arrays.stream(EnrolmentErrorCode.values()).map(EnrolmentErrorCode::getCode)
 				.collect(Collectors.toSet());
 		assertEquals(EnrolmentErrorCode.values().length, codes.size());
-		codes.forEach(code -> assertTrue(code, code.matches("ENR-(PSP|SES|GEN)-\\d{3}")));
+		codes.forEach(code -> assertTrue(code, code.matches("ENR-(PSP|SES|DEV|GEN)-\\d{3}")));
 	}
 
 	@Test

@@ -28,7 +28,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * {@code GET /v1/enrolment/app/config} (MP-243): the config the app reads at launch. Public: it's called
- * before the app has a session, so {@code EnrolmentSessionFilter} skips it; {@code AppConfigRateLimitFilter}
+ * before the app has a session, so {@code EnrolmentSessionFilter} skips it; {@code PublicEndpointRateLimitFilter}
  * limits it per client IP instead.
  */
 @RestController

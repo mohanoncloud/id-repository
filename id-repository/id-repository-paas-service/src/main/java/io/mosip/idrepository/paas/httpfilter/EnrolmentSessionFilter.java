@@ -45,14 +45,15 @@ public class EnrolmentSessionFilter extends OncePerRequestFilter {
 	}
 
 	/**
-	 * Health checks, the API docs (Swagger UI and OpenAPI JSON) and the app config don't need a session. The
-	 * app reads its config at launch, before it has a session (MP-243).
+	 * Health checks, the API docs (Swagger UI and OpenAPI JSON), the app config and device registration don't
+	 * need a session. The app reads its config at launch (MP-243) and registers its device key (MP-247) before
+	 * it has a session.
 	 */
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
 		String path = EnrolmentApi.pathWithinService(request);
 		return path.startsWith("/actuator") || path.startsWith("/swagger-ui") || path.startsWith("/v3/api-docs")
-				|| EnrolmentApi.isAppConfig(request);
+				|| EnrolmentApi.isPublic(request);
 	}
 
 	@Override

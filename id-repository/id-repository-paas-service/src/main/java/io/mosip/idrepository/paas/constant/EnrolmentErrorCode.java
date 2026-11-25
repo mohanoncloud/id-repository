@@ -28,6 +28,16 @@ public enum EnrolmentErrorCode {
 	PSP_010("ENR-PSP-010", HttpStatus.OK, "Add your address to continue."),
 	PSP_011("ENR-PSP-011", HttpStatus.SERVICE_UNAVAILABLE, "We couldn’t save your details. Please try again."),
 
+	// ---- Device registration (MP-247). PROPOSED: codes and texts are not in the API spec yet; they need
+	// product approval (the app shows errors[].message word for word) before the spec is updated.
+	DEV_001("ENR-DEV-001", HttpStatus.OK,
+			"This phone can’t be used for My Pass enrolment. Please visit an assisted desk."),
+	DEV_002("ENR-DEV-002", HttpStatus.OK, "We couldn’t register this device. Please restart the app and try again."),
+	// ENR-DEV-003 is not used: a revoked key is answered with ENR-DEV-002 so a caller can't tell it was revoked
+	// (the log says). Product may still want a separate code that sends the user to an assisted desk (MP-408).
+	DEV_004("ENR-DEV-004", HttpStatus.OK,
+			"We couldn’t verify that this phone and app are genuine. Please update the app and try again."),
+
 	// ---- Common errors (section 6)
 	SES_001("ENR-SES-001", HttpStatus.UNAUTHORIZED,
 			"Your session has ended for your security. Verify your email to continue where you left off, or start again."),

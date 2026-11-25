@@ -18,6 +18,12 @@ public final class EnrolmentApi {
 	/** Path of the app config endpoint within the service. */
 	public static final String APP_CONFIG_PATH = "/app/config";
 
+	/** Device registration (MP-247): called before the app has a session, so like the app config it is public. */
+	public static final String DEVICE_REGISTER = "mosip.enrolment.device.register";
+
+	/** Path of the device registration endpoint within the service. */
+	public static final String DEVICE_REGISTER_PATH = "/device/register";
+
 	/** Used when the endpoint can't be determined (e.g. an unknown path). */
 	public static final String DEFAULT = "mosip.enrolment";
 
@@ -33,7 +39,20 @@ public final class EnrolmentApi {
 		if (path.startsWith("/passport")) {
 			return PASSPORT;
 		}
+		if (isDeviceRegister(request)) {
+			return DEVICE_REGISTER;
+		}
 		return isAppConfig(request) ? APP_CONFIG : DEFAULT;
+	}
+
+	/** True for device registration, which is called before the app has a session. */
+	public static boolean isDeviceRegister(HttpServletRequest request) {
+		return DEVICE_REGISTER_PATH.equals(pathWithinService(request));
+	}
+
+	/** True for the endpoints the app calls without a session: the app config and device registration. */
+	public static boolean isPublic(HttpServletRequest request) {
+		return isAppConfig(request) || isDeviceRegister(request);
 	}
 
 	/** True for the public app config endpoint, which is called before the app has a session. */

@@ -8,7 +8,8 @@ import org.springframework.context.annotation.Configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.mosip.idrepository.paas.httpfilter.AppConfigRateLimitFilter;
+import io.mosip.idrepository.paas.constant.EnrolmentApi;
+import io.mosip.idrepository.paas.httpfilter.PublicEndpointRateLimitFilter;
 import io.mosip.idrepository.paas.httpfilter.EnrolmentSessionFilter;
 import io.mosip.idrepository.paas.session.SessionVerifier;
 
@@ -33,10 +34,22 @@ public class IdPaasConfig {
 
 	/** Per-IP limit on the public app config endpoint (the filter itself skips every other path). */
 	@Bean
-	public FilterRegistrationBean<AppConfigRateLimitFilter> appConfigRateLimitFilter(AppConfigProperties properties,
+	public FilterRegistrationBean<PublicEndpointRateLimitFilter> appConfigRateLimitFilter(AppConfigProperties properties,
 			ObjectMapper mapper, Clock clock) {
-		FilterRegistrationBean<AppConfigRateLimitFilter> registration = new FilterRegistrationBean<>(
-				new AppConfigRateLimitFilter(properties, mapper, clock));
+		FilterRegistrationBean<PublicEndpointRateLimitFilter> registration = new FilterRegistrationBean<>(
+				new PublicEndpointRateLimitFilter(properties, mapper, clock));
+		registration.addUrlPatterns("/*");
+		return registration;
+	}
+
+	/** Per-IP limit on device registration (MP-247), counted apart from the app config's. */
+	@Bean
+	public FilterRegistrationBean<PublicEndpointRateLimitFilter> deviceRegisterRateLimitFilter(
+			DeviceProperties properties, ObjectMapper mapper, Clock clock) {
+		FilterRegistrationBean<PublicEndpointRateLimitFilter> registration = new FilterRegistrationBean<>(
+				new PublicEndpointRateLimitFilter(EnrolmentApi::isDeviceRegister, EnrolmentApi.DEVICE_REGISTER,
+						() -> properties.getRateLimit().getRequestsPerMinute(),
+						() -> properties.getRateLimit().getMaxTrackedClients(), mapper, clock));
 		registration.addUrlPatterns("/*");
 		return registration;
 	}

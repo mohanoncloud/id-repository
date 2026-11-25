@@ -18,16 +18,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.mosip.idrepository.paas.config.AppConfigProperties;
 
-public class AppConfigRateLimitFilterTest {
+public class PublicEndpointRateLimitFilterTest {
 
 	/** 10:00:45 UTC: 15 seconds left in the minute. */
 	private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-24T10:00:45Z"), ZoneOffset.UTC);
 
-	private static AppConfigRateLimitFilter filter(int perMinute, int maxClients) {
+	private static PublicEndpointRateLimitFilter filter(int perMinute, int maxClients) {
 		AppConfigProperties properties = new AppConfigProperties();
 		properties.getRateLimit().setRequestsPerMinute(perMinute);
 		properties.getRateLimit().setMaxTrackedClients(maxClients);
-		return new AppConfigRateLimitFilter(properties, new ObjectMapper(), CLOCK);
+		return new PublicEndpointRateLimitFilter(properties, new ObjectMapper(), CLOCK);
 	}
 
 	private static MockHttpServletRequest request(String servletPath, String ip) {
@@ -40,7 +40,7 @@ public class AppConfigRateLimitFilterTest {
 
 	@Test
 	public void onlyTheAppConfigPathIsLimited() {
-		AppConfigRateLimitFilter filter = filter(1, 10);
+		PublicEndpointRateLimitFilter filter = filter(1, 10);
 		assertFalse(filter.shouldNotFilter(request("/app/config", "1.1.1.1")));
 		assertTrue(filter.shouldNotFilter(request("/passport", "1.1.1.1")));
 		assertTrue(filter.shouldNotFilter(request("/actuator/health", "1.1.1.1")));
@@ -48,7 +48,7 @@ public class AppConfigRateLimitFilterTest {
 
 	@Test
 	public void requestsOverTheLimitAreEnrGen002WithRetryAfter() throws Exception {
-		AppConfigRateLimitFilter filter = filter(2, 10);
+		PublicEndpointRateLimitFilter filter = filter(2, 10);
 
 		for (int i = 0; i < 2; i++) {
 			MockFilterChain chain = new MockFilterChain();
@@ -68,7 +68,7 @@ public class AppConfigRateLimitFilterTest {
 
 	@Test
 	public void eachClientHasItsOwnCount() throws Exception {
-		AppConfigRateLimitFilter filter = filter(1, 10);
+		PublicEndpointRateLimitFilter filter = filter(1, 10);
 		filter.doFilter(request("/app/config", "1.1.1.1"), new MockHttpServletResponse(), new MockFilterChain());
 
 		MockFilterChain chain = new MockFilterChain();
@@ -79,7 +79,7 @@ public class AppConfigRateLimitFilterTest {
 
 	@Test
 	public void countStartsAgainEachMinute() {
-		AppConfigRateLimitFilter filter = filter(1, 10);
+		PublicEndpointRateLimitFilter filter = filter(1, 10);
 		assertEquals(1, filter.count("1.1.1.1", 100));
 		assertEquals(2, filter.count("1.1.1.1", 100));
 		assertEquals(1, filter.count("1.1.1.1", 101));
@@ -87,7 +87,7 @@ public class AppConfigRateLimitFilterTest {
 
 	@Test
 	public void trackedClientsStayBounded() {
-		AppConfigRateLimitFilter filter = filter(1, 3);
+		PublicEndpointRateLimitFilter filter = filter(1, 3);
 		filter.count("a", 100);
 		filter.count("b", 100);
 		filter.count("c", 101);
