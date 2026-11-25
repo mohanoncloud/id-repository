@@ -31,7 +31,7 @@ public class PrintedVsMrzComparatorTest {
 	private static final double HIGH = 0.98;
 
 	private static final PrintedVsMrzComparator COMPARATOR = new PrintedVsMrzComparator(
-			properties(Map.of("BHS", List.of("BAHAMIAN", "BAHAMAS"), "UTO", List.of("UTOPIAN"))));
+			properties(Map.of("BHS", List.of("BAHAMIAN"), "UTO", List.of("UTOPIAN"))));
 
 	/** MRZ of the ICAO 9303 specimen, read by the real reader. */
 	private static final PassportMrz ICAO_MRZ = new Td3MrzReader(
@@ -271,6 +271,18 @@ public class PrintedVsMrzComparatorTest {
 		}
 	}
 
+	/** Bahamas passports print dates as DD/MMM/YYYY (confirmed on MP-257): with spaces or with slashes. */
+	@Test
+	public void bahamasDateFormatWithSlashes() {
+		for (String printed : List.of("12/AUG/1974", "12/AUG/74", "12/aug/1974", "12 / AUG / 1974", "12/AUG/AOUT/1974",
+				"12 AUG/AOUT/1974", "12/AUG 1974")) {
+			assertEquals(printed, FieldStatus.MATCH,
+					compare(with(VizField.DATE_OF_BIRTH, printed), ICAO_MRZ).status(VizField.DATE_OF_BIRTH));
+		}
+		assertEquals(FieldStatus.MISMATCH,
+				compare(with(VizField.DATE_OF_BIRTH, "13/AUG/1974"), ICAO_MRZ).status(VizField.DATE_OF_BIRTH));
+	}
+
 	@Test
 	public void unknownDateFormatIsUncertain() {
 		for (String printed : List.of("12.08.1974", "AUG 12 1974", "12 FOO 1974", "32 AUG 1974")) {
@@ -337,14 +349,19 @@ public class PrintedVsMrzComparatorTest {
 	}
 
 	@Test
-	public void defaultConfigAcceptsTheBahamianWords() {
+	public void defaultConfigAcceptsBahamianAndTheCode() {
 		PrintedVsMrzComparator defaults = new PrintedVsMrzComparator(new PassportProperties());
-		for (String printed : List.of("BAHAMIAN", "Bahamas", "THE BAHAMAS", "BHS")) {
-			Map<String, OcrField> fields = printedWithName("SMITH", "JOHN");
-			fields.put("nationality", new OcrField(printed, HIGH));
-			assertEquals(printed, FieldStatus.MATCH,
-					defaults.compare(fields, mrzWithName("SMITH", "JOHN", false)).status(VizField.NATIONALITY));
+		for (String printed : List.of("BAHAMIAN", "Bahamian", "BHS")) {
+			assertEquals(printed, FieldStatus.MATCH, defaultNationality(defaults, printed));
 		}
+		// Any other word is unknown to the config: not compared, rather than a mismatch.
+		assertEquals(FieldStatus.NOT_COMPARED, defaultNationality(defaults, "BAHAMAS"));
+	}
+
+	private static FieldStatus defaultNationality(PrintedVsMrzComparator defaults, String printed) {
+		Map<String, OcrField> fields = printedWithName("SMITH", "JOHN");
+		fields.put("nationality", new OcrField(printed, HIGH));
+		return defaults.compare(fields, mrzWithName("SMITH", "JOHN", false)).status(VizField.NATIONALITY);
 	}
 
 	@Test

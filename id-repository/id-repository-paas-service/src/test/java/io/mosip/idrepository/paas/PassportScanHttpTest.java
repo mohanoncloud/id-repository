@@ -118,7 +118,7 @@ public class PassportScanHttpTest {
 		assertEquals("America/Nassau", passportProperties.getExpiryZone());
 		assertEquals(0, passportProperties.getExpiryGraceDays());
 		assertEquals(0.80, passportProperties.getPrintedMinConfidence(), 0.0);
-		assertEquals(List.of("BAHAMIAN", "BAHAMAS", "THE BAHAMAS"), passportProperties.getNationalityNames().get("BHS"));
+		assertEquals(List.of("BAHAMIAN"), passportProperties.getNationalityNames().get("BHS"));
 	}
 
 	// ------------------------------------------------------------------ expiry (MP-258)
@@ -146,6 +146,16 @@ public class PassportScanHttpTest {
 	}
 
 	// ------------------------------------------------------------------ printed vs MRZ (MP-257)
+
+	@Test
+	public void bahamasDatesPrintedAsDdMmmYyyyWithSlashesMatch() throws Exception {
+		// Bahamas passports print dates as DD/MMM/YYYY (confirmed on MP-257).
+		Map<String, OcrField> printed = bahamasPrinted("18/NOV/2026");
+		printed.put("dateOfBirth", new OcrField("15/JAN/1990", 0.97));
+		printed.put("nationality", new OcrField("Bahamian", 0.97));
+		scan(EXPIRES_TODAY_IN_NASSAU, printed).andExpect(status().isServiceUnavailable())
+				.andExpect(jsonPath("$.errors[0].errorCode").value("ENR-GEN-003"));
+	}
 
 	@Test
 	public void printedDetailsThatDontMatchAreEnrPsp007WithTheSpecMessage() throws Exception {

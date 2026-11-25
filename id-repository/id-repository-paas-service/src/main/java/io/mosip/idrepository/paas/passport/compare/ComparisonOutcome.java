@@ -12,7 +12,7 @@ public enum ComparisonOutcome {
 
 	/**
 	 * No reliable mismatch, but some fields couldn't be read: ask for a retake (ENR-PSP-002), not the assisted
-	 * desk. MP-257 asks to confirm this rule.
+	 * desk (confirmed on MP-257). The app allows 3 attempts at the photo.
 	 */
 	RETAKE(EnrolmentErrorCode.PSP_002),
 

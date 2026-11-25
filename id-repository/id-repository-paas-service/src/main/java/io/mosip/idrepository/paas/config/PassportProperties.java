@@ -39,9 +39,8 @@ public class PassportProperties {
 	private double printedMinConfidence = 0.80;
 
 	/**
-	 * Printed nationality words accepted for each MRZ nationality code; the data page shows a word (e.g.
-	 * BAHAMIAN), the MRZ a code (BHS). The printed code itself is always accepted.
+	 * Printed nationality words accepted for each MRZ nationality code; the data page shows a word, the MRZ a code.
+	 * Bahamas passports print BAHAMIAN (confirmed on MP-257). The printed code itself is always accepted.
 	 */
-	private Map<String, List<String>> nationalityNames = new LinkedHashMap<>(
-			Map.of("BHS", List.of("BAHAMIAN", "BAHAMAS", "THE BAHAMAS")));
+	private Map<String, List<String>> nationalityNames = new LinkedHashMap<>(Map.of("BHS", List.of("BAHAMIAN")));
 }

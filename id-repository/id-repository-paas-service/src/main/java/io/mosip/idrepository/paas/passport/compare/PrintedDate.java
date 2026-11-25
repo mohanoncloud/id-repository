@@ -9,13 +9,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * A date as printed in the visual zone, e.g. {@code 12 AUG 1974}, {@code 12 AUG/AOUT 74} or {@code 12AUG74}. A
- * two-digit year stays two digits and is compared only with the last two digits of the MRZ year, so no century
+ * A date as printed in the visual zone, e.g. {@code 12 AUG 1974}, {@code 12/AUG/1974} (Bahamas: DD/MMM/YYYY),
+ * {@code 12 AUG/AOUT 74} or {@code 12AUG74}. Day, month and year may be separated by a space, a slash or nothing.
+ * A two-digit year stays two digits and is compared only with the last two digits of the MRZ year, so no century
  * guess is needed.
  */
 record PrintedDate(int day, int month, int year, boolean twoDigitYear) {
 
-	private static final Pattern FORMAT = Pattern.compile("^(\\d{1,2}) ?([A-Z]+(?:/[A-Z]+)*) ?(\\d{4}|\\d{2})$");
+	/** Day, then the month (one or more names joined by "/", e.g. AUG/AOUT), then the year. */
+	private static final Pattern FORMAT = Pattern.compile("^(\\d{1,2})[ /]?([A-Z]+(?:/[A-Z]+)*)[ /]?(\\d{4}|\\d{2})$");
 
 	private static final Map<String, Integer> MONTHS = Map.ofEntries(Map.entry("JAN", 1), Map.entry("FEB", 2),
 			Map.entry("MAR", 3), Map.entry("APR", 4), Map.entry("MAY", 5), Map.entry("JUN", 6), Map.entry("JUL", 7),
