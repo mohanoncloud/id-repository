@@ -4,3 +4,4 @@
 \ir ddl/idpaas-passport_registry.sql
 \ir ddl/idpaas-app_config.sql
 \ir ddl/idpaas-enrolment_session.sql
+\ir ddl/idpaas-device.sql

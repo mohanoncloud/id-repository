@@ -38,3 +38,26 @@ GRANT SELECT,INSERT,UPDATE
 GRANT SELECT
    ON idpaas.app_config_h
    TO idpaasconfigadmin;
+
+-- Devices (MP-247): the service registers and reads devices. It can't change or remove one, so a pod or a
+-- leaked idpaasuser password can't un-revoke a key or edit a registered key.
+REVOKE UPDATE,DELETE,TRUNCATE,REFERENCES
+   ON idpaas.device
+   FROM idpaasuser;
+
+-- Device revokers set a key's status and reason and nothing else; trigger trg_device_before_update stamps who and when.
+GRANT CONNECT
+   ON DATABASE mypass_idpaas
+   TO idpaasdeviceadmin;
+
+GRANT USAGE
+   ON SCHEMA idpaas
+   TO idpaasdeviceadmin;
+
+GRANT SELECT
+   ON idpaas.device
+   TO idpaasdeviceadmin;
+
+GRANT UPDATE (status_code, revoked_reason)
+   ON idpaas.device
+   TO idpaasdeviceadmin;
